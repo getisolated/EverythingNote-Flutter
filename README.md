@@ -1,4 +1,4 @@
-# EverythingNote (SpotNotes)
+# EverythingNote
 
 Application de prise de notes en Markdown, multi-projets, avec un systeme de navigation par "Spotlight" (palette de commandes), construite avec Flutter.
 
