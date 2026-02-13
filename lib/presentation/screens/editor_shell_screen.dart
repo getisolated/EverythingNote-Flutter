@@ -10,8 +10,9 @@ import '../editor/editor_view.dart';
 
 enum SpotlightMode { searchNotes, commands, switchProject }
 
-final spotlightStateProvider =
-    StateProvider<SpotlightState>((ref) => const SpotlightState.hidden());
+final spotlightStateProvider = StateProvider<SpotlightState>(
+  (ref) => const SpotlightState.hidden(),
+);
 
 @immutable
 class SpotlightState {
@@ -41,12 +42,15 @@ class EditorShellScreen extends ConsumerWidget {
 
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
-        SingleActivator(LogicalKeyboardKey.f1):
-            _OpenSpotlightIntent(SpotlightMode.commands),
+        SingleActivator(LogicalKeyboardKey.f1): _OpenSpotlightIntent(
+          SpotlightMode.commands,
+        ),
         SingleActivator(LogicalKeyboardKey.keyF, control: true):
             _OpenSpotlightIntent(SpotlightMode.searchNotes),
         SingleActivator(LogicalKeyboardKey.keyR, control: true):
             _OpenSpotlightIntent(SpotlightMode.switchProject),
+        SingleActivator(LogicalKeyboardKey.keyS, control: true):
+            _SaveNowIntent(),
         SingleActivator(LogicalKeyboardKey.escape): _CloseSpotlightIntent(),
       },
       child: Actions(
@@ -65,6 +69,27 @@ class EditorShellScreen extends ConsumerWidget {
               return null;
             },
           ),
+          _SaveNowIntent: CallbackAction<_SaveNowIntent>(
+            onInvoke: (intent) {
+              final projectId = ref.read(activeProjectIdProvider);
+              final note = ref.read(activeNoteProvider);
+              if (note == null) return null;
+
+              final draft = ref.read(currentEditorDraftProvider);
+              ref
+                  .read(noteRepositoryProvider)
+                  .updateNote(
+                    projectId: projectId,
+                    noteId: note.id,
+                    content: draft,
+                  );
+
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Sauvegardé ✅')));
+              return null;
+            },
+          ),
         },
         child: Focus(
           autofocus: true,
@@ -72,8 +97,7 @@ class EditorShellScreen extends ConsumerWidget {
             body: Stack(
               children: [
                 const _MainLayout(),
-                if (spotlight.isOpen)
-                  _SpotlightLayer(mode: spotlight.mode),
+                if (spotlight.isOpen) _SpotlightLayer(mode: spotlight.mode),
               ],
             ),
           ),
@@ -104,7 +128,8 @@ class _MainLayout extends ConsumerWidget {
             projectName: projectName,
             tabs: tabs,
             activeIndex: active,
-            onSelect: (i) => ref.read(activeTabIndexProvider.notifier).state = i,
+            onSelect: (i) =>
+                ref.read(activeTabIndexProvider.notifier).state = i,
             onCloseTab: (i) => _closeTab(ref, i),
           ),
           Expanded(
@@ -115,7 +140,9 @@ class _MainLayout extends ConsumerWidget {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       border: Border(
-                        right: BorderSide(color: Theme.of(context).dividerColor),
+                        right: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
                     ),
                     child: const _NavigationNotes(),
@@ -186,11 +213,15 @@ class _TopTabsBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   onTap: () => onSelect(i),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? Theme.of(context).colorScheme.surfaceContainerHighest
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest
                           : null,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -207,8 +238,9 @@ class _TopTabsBar extends StatelessWidget {
                         Text(
                           tab.title,
                           style: TextStyle(
-                            fontWeight:
-                                isActive ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -294,7 +326,8 @@ class _NavigationNotes extends ConsumerWidget {
       ref.read(activeTabIndexProvider.notifier).state = existingIndex;
       return;
     }
-    final newTabs = List<TabRef>.from(tabs)..add(TabRef(noteId: noteId, title: title));
+    final newTabs = List<TabRef>.from(tabs)
+      ..add(TabRef(noteId: noteId, title: title));
     ref.read(openTabsProvider.notifier).state = newTabs;
     ref.read(activeTabIndexProvider.notifier).state = newTabs.length - 1;
   }
@@ -312,7 +345,10 @@ class _SpotlightLayer extends ConsumerWidget {
     if (mode == SpotlightMode.searchNotes) {
       final notes = ref.watch(notesListProvider);
       final items = notes
-          .map((n) => SpotlightItem(id: n.id, label: n.title, hint: 'Ouvrir la note'))
+          .map(
+            (n) =>
+                SpotlightItem(id: n.id, label: n.title, hint: 'Ouvrir la note'),
+          )
           .toList();
 
       return SpotlightOverlay(
@@ -328,7 +364,8 @@ class _SpotlightLayer extends ConsumerWidget {
             final newTabs = List<TabRef>.from(tabs)
               ..add(TabRef(noteId: picked.id, title: picked.label));
             ref.read(openTabsProvider.notifier).state = newTabs;
-            ref.read(activeTabIndexProvider.notifier).state = newTabs.length - 1;
+            ref.read(activeTabIndexProvider.notifier).state =
+                newTabs.length - 1;
           }
           close();
         },
@@ -339,7 +376,13 @@ class _SpotlightLayer extends ConsumerWidget {
     if (mode == SpotlightMode.switchProject) {
       final projects = ref.watch(projectsProvider);
       final items = projects
-          .map((p) => SpotlightItem(id: p.id, label: p.name, hint: 'Changer de projet'))
+          .map(
+            (p) => SpotlightItem(
+              id: p.id,
+              label: p.name,
+              hint: 'Changer de projet',
+            ),
+          )
           .toList();
 
       return SpotlightOverlay(
@@ -355,38 +398,196 @@ class _SpotlightLayer extends ConsumerWidget {
               .map((n) => TabRef(noteId: n.id, title: n.title))
               .toList();
 
-          ref.read(openTabsProvider.notifier).state =
-              newTabs.isEmpty ? const [] : newTabs;
+          ref.read(openTabsProvider.notifier).state = newTabs.isEmpty
+              ? const []
+              : newTabs;
           ref.read(activeTabIndexProvider.notifier).state = 0;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Projet: ${picked.label}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Projet: ${picked.label}')));
           close();
         },
         onClose: close,
       );
     }
 
-    // Commands mock (visible et utile)
-    final items = const [
-      SpotlightItem(id: 'new', label: 'New note', hint: 'Créer une note (mock)'),
-      SpotlightItem(id: 'rename', label: 'Rename note', hint: 'Renommer (mock)'),
-      SpotlightItem(id: 'delete', label: 'Delete note', hint: 'Supprimer (mock)'),
+    final note = ref.watch(activeNoteProvider);
+
+    final items = [
+      const SpotlightItem(id: 'new', label: 'New note', hint: 'Créer une note'),
+      SpotlightItem(
+        id: 'rename',
+        label: 'Rename note',
+        hint: note == null ? 'Aucune note ouverte' : 'Renommer la note active',
+      ),
+      SpotlightItem(
+        id: 'delete',
+        label: 'Delete note',
+        hint: note == null ? 'Aucune note ouverte' : 'Supprimer la note active',
+      ),
     ];
 
     return SpotlightOverlay(
       title: 'Commandes',
       items: items,
-      onPick: (picked) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Commande: ${picked.label} (mock)')),
-        );
-        close();
+      onPick: (picked) async {
+        // Capture all provider references before close() disposes the widget
+        final projectId = ref.read(activeProjectIdProvider);
+        final repo = ref.read(noteRepositoryProvider);
+        final tabsNotifier = ref.read(openTabsProvider.notifier);
+        final activeIndexNotifier = ref.read(activeTabIndexProvider.notifier);
+        final messenger = ScaffoldMessenger.of(context);
+
+        if (picked.id == 'new') {
+          close();
+
+          final title = await _promptText(
+            context,
+            title: 'Nouvelle note',
+            hint: 'Titre',
+            initialValue: 'Nouvelle note',
+          );
+          if (title == null || title.trim().isEmpty) return;
+
+          final created = repo.createNote(projectId: projectId, title: title.trim());
+
+          // ouvrir onglet + activer
+          final tabs = tabsNotifier.state;
+          final newTabs = List<TabRef>.from(tabs)
+            ..add(TabRef(noteId: created.id, title: created.title));
+          tabsNotifier.state = newTabs;
+          activeIndexNotifier.state = newTabs.length - 1;
+
+          messenger.showSnackBar(
+            SnackBar(content: Text('Note créée: ${created.title}')),
+          );
+          return;
+        }
+
+        if (picked.id == 'rename') {
+          if (note == null) return;
+          close();
+
+          final newTitle = await _promptText(
+            context,
+            title: 'Renommer la note',
+            hint: 'Nouveau titre',
+            initialValue: note.title,
+          );
+          if (newTitle == null || newTitle.trim().isEmpty) return;
+
+          repo.updateNote(
+            projectId: projectId,
+            noteId: note.id,
+            title: newTitle.trim(),
+          );
+
+          // mettre à jour l'onglet correspondant
+          final tabs = tabsNotifier.state;
+          final idx = tabs.indexWhere((t) => t.noteId == note.id);
+          if (idx >= 0) {
+            final updated = List<TabRef>.from(tabs);
+            updated[idx] = TabRef(noteId: note.id, title: newTitle.trim());
+            tabsNotifier.state = updated;
+          }
+
+          messenger.showSnackBar(const SnackBar(content: Text('Renommé ✅')));
+          return;
+        }
+
+        if (picked.id == 'delete') {
+          if (note == null) return;
+          close();
+
+          final ok = await _confirm(
+            context,
+            title: 'Supprimer la note ?',
+            message: '“${note.title}” sera supprimée.',
+          );
+          if (!ok) return;
+
+          repo.deleteNote(projectId: projectId, noteId: note.id);
+
+          // fermer tous les onglets sur cette note
+          final tabs = tabsNotifier.state;
+          final newTabs = tabs.where((t) => t.noteId != note.id).toList();
+          tabsNotifier.state = newTabs;
+
+          // ajuster l’onglet actif
+          final active = activeIndexNotifier.state;
+          if (newTabs.isEmpty) {
+            activeIndexNotifier.state = 0;
+          } else if (active >= newTabs.length) {
+            activeIndexNotifier.state = newTabs.length - 1;
+          }
+
+          messenger.showSnackBar(const SnackBar(content: Text('Supprimé 🗑️')));
+          return;
+        }
       },
       onClose: close,
     );
   }
+}
+
+Future<String?> _promptText(
+  BuildContext context, {
+  required String title,
+  required String hint,
+  required String initialValue,
+}) async {
+  final controller = TextEditingController(text: initialValue);
+
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+          onSubmitted: (_) => Navigator.of(ctx).pop(controller.text),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<bool> _confirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Supprimer'),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
 }
 
 // Intents
@@ -397,4 +598,8 @@ class _OpenSpotlightIntent extends Intent {
 
 class _CloseSpotlightIntent extends Intent {
   const _CloseSpotlightIntent();
+}
+
+class _SaveNowIntent extends Intent {
+  const _SaveNowIntent();
 }

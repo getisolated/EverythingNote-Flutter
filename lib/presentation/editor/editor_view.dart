@@ -44,10 +44,16 @@ class _EditorViewState extends ConsumerState<EditorView> {
     _draft = content;
     _preview = content;
     _controller = TextEditingController(text: content);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(currentEditorDraftProvider.notifier).state = content;
+    });
   }
 
   void _onChanged(String value, {required String projectId, required String noteId}) {
     _draft = value;
+
+    ref.read(currentEditorDraftProvider.notifier).state = value;
 
     // Debounce preview (feel "real-time" but avoids rebuild storm)
     _previewDebounce?.cancel();

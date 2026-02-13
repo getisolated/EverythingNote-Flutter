@@ -55,3 +55,5 @@ final activeNoteProvider = Provider<Note?>((ref) {
   final repo = ref.watch(noteRepositoryProvider);
   return repo.getNote(projectId: projectId, noteId: noteId);
 });
+
+final currentEditorDraftProvider = StateProvider<String>((ref) => '');
