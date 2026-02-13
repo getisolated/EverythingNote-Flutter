@@ -8,6 +8,7 @@ class SpotlightOverlay extends StatefulWidget {
   final List<SpotlightItem> items;
   final void Function(SpotlightItem picked) onPick;
   final VoidCallback onClose;
+  final void Function(String query)? onQueryChanged;
 
   const SpotlightOverlay({
     super.key,
@@ -15,6 +16,7 @@ class SpotlightOverlay extends StatefulWidget {
     required this.items,
     required this.onPick,
     required this.onClose,
+    this.onQueryChanged,
   });
 
   @override
@@ -50,17 +52,8 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
     super.dispose();
   }
 
-  List<SpotlightItem> get _filtered {
-    final q = _controller.text.trim().toLowerCase();
-    if (q.isEmpty) return widget.items;
-    return widget.items.where((it) {
-      return it.label.toLowerCase().contains(q) ||
-          (it.hint?.toLowerCase().contains(q) ?? false);
-    }).toList();
-  }
-
   void _move(int delta) {
-    final len = _filtered.length;
+    final len = widget.items.length;
     if (len == 0) return;
     setState(() {
       _selectedIndex = (_selectedIndex + delta).clamp(0, len - 1);
@@ -68,15 +61,18 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
   }
 
   void _confirm() {
-    final list = _filtered;
+    final list = widget.items;
     if (list.isEmpty) return;
     widget.onPick(list[_selectedIndex]);
   }
 
   @override
   Widget build(BuildContext context) {
-    final list = _filtered;
-    final safeIndex = _selectedIndex.clamp(0, (list.isEmpty ? 0 : list.length - 1));
+    final list = widget.items;
+    final safeIndex = _selectedIndex.clamp(
+      0,
+      (list.isEmpty ? 0 : list.length - 1),
+    );
 
     return Material(
       color: Colors.transparent,
@@ -127,20 +123,27 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                           children: [
                             const Icon(Icons.bolt, size: 18),
                             const SizedBox(width: 8),
-                            Text(widget.title,
-                                style: Theme.of(context).textTheme.titleSmall),
+                            Text(
+                              widget.title,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
                             const Spacer(),
-                            Text('Esc',
-                                style: Theme.of(context).textTheme.labelSmall),
+                            Text(
+                              'Esc',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
                         TextField(
                           controller: _controller,
                           focusNode: _focusNode,
-                          onChanged: (_) => setState(() {
-                            _selectedIndex = 0;
-                          }),
+                          onChanged: (q) {
+                            widget.onQueryChanged?.call(q);
+                            setState(() {
+                              _selectedIndex = 0;
+                            });
+                          },
                           decoration: const InputDecoration(
                             hintText: 'Tape pour filtrer',
                             prefixIcon: Icon(Icons.search),
@@ -156,8 +159,9 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                   padding: const EdgeInsets.all(16),
                                   child: Text(
                                     'Aucun résultat.',
-                                    style:
-                                        Theme.of(context).textTheme.labelLarge,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
                                   ),
                                 )
                               : ListView.builder(
@@ -171,8 +175,8 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                         borderRadius: BorderRadius.circular(10),
                                         color: selected
                                             ? Theme.of(context)
-                                                .colorScheme
-                                                .surfaceContainerHighest
+                                                  .colorScheme
+                                                  .surfaceContainerHighest
                                             : null,
                                       ),
                                       child: ListTile(
@@ -181,9 +185,9 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                           Icons.subdirectory_arrow_right,
                                           size: 18,
                                           color: selected
-                                              ? Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
                                               : null,
                                         ),
                                         title: Text(it.label),
@@ -203,7 +207,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                             '↑ ↓ naviguer, Entrée valider',
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),

@@ -8,11 +8,15 @@ import '../state/app_providers.dart';
 
 import '../editor/editor_view.dart';
 
+import '../search/search_engine.dart';
+
 enum SpotlightMode { searchNotes, commands, switchProject }
 
 final spotlightStateProvider = StateProvider<SpotlightState>(
   (ref) => const SpotlightState.hidden(),
 );
+
+final spotlightQueryProvider = StateProvider<String>((ref) => '');
 
 @immutable
 class SpotlightState {
@@ -57,6 +61,7 @@ class EditorShellScreen extends ConsumerWidget {
         actions: <Type, Action<Intent>>{
           _OpenSpotlightIntent: CallbackAction<_OpenSpotlightIntent>(
             onInvoke: (intent) {
+              ref.read(spotlightQueryProvider.notifier).state = '';
               ref.read(spotlightStateProvider.notifier).state =
                   SpotlightState.open(intent.mode);
               return null;
@@ -344,16 +349,26 @@ class _SpotlightLayer extends ConsumerWidget {
 
     if (mode == SpotlightMode.searchNotes) {
       final notes = ref.watch(notesListProvider);
-      final items = notes
+      final query = ref.watch(spotlightQueryProvider);
+
+      final engine = NotesSearchEngine();
+      final results = engine.search(notes, query);
+
+      final items = results
           .map(
-            (n) =>
-                SpotlightItem(id: n.id, label: n.title, hint: 'Ouvrir la note'),
+            (r) => SpotlightItem(
+              id: r.note.id,
+              label: r.note.title,
+              hint: r.snippet,
+            ),
           )
           .toList();
 
       return SpotlightOverlay(
         title: 'Rechercher une note',
         items: items,
+        onQueryChanged: (q) =>
+            ref.read(spotlightQueryProvider.notifier).state = q,
         onPick: (picked) {
           // ouvrir onglet + activer
           final tabs = ref.read(openTabsProvider);
@@ -367,9 +382,14 @@ class _SpotlightLayer extends ConsumerWidget {
             ref.read(activeTabIndexProvider.notifier).state =
                 newTabs.length - 1;
           }
+          // reset query pour la prochaine ouverture
+          ref.read(spotlightQueryProvider.notifier).state = '';
           close();
         },
-        onClose: close,
+        onClose: () {
+          ref.read(spotlightQueryProvider.notifier).state = '';
+          close();
+        },
       );
     }
 
@@ -450,7 +470,10 @@ class _SpotlightLayer extends ConsumerWidget {
           );
           if (title == null || title.trim().isEmpty) return;
 
-          final created = repo.createNote(projectId: projectId, title: title.trim());
+          final created = repo.createNote(
+            projectId: projectId,
+            title: title.trim(),
+          );
 
           // ouvrir onglet + activer
           final tabs = tabsNotifier.state;
